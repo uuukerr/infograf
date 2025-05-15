@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="styles.css">
 
     <!-- Основные библиотеки -->
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs/dist/pptxgen.bundle.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://unpkg.com/topojson@3"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.6.1/d3.min.js"></script>
@@ -30,6 +31,31 @@
 </head>
 
 <body>
+    <script>
+        // Объявляем функцию для экспорта презентации
+        function exportPresentation() {
+            const pres = new PptxGenJS();
+            const slide = pres.addSlide();
+
+            // Получаем SVG-рисунок
+            const svgEl = document.querySelector("#visualization-output svg");
+            if (!svgEl) {
+                console.error("Элемент SVG не найден!");
+                return;
+            }
+
+            // Используем dom-to-image для преобразования SVG в PNG
+            domtoimage.toPng(svgEl).then((dataUrl) => {
+                // Добавляем изображение на слайд
+                slide.addImage({ data: dataUrl, x: 0, y: 0, w: 800, h: 600 });
+
+                // Сохраняем презентацию
+                pres.writeFile({ filename: "Инфографика.pptx" });
+            }).catch((err) => {
+                console.error("Ошибка преобразования SVG в PNG:", err);
+            });
+        }
+    </script>
     <header class="header">
         <h1>Конструктор инфографики</h1>
     </header>
@@ -47,6 +73,7 @@
         <div style="display: flex; justify-content: center; margin-top: 20px;">
             <button onclick="exportImage()">Сохранить график в JPG</button>
             <button onclick="exportExcel()">Сохранить данные в Excel</button>
+            <button onclick="exportPresentation()">Скачать презентацию (.pptx)</button>
         </div>
         <section class="settings-section">
             <div class="settings-title">
@@ -177,22 +204,35 @@
         async function exportImage() {
             const element = document.querySelector("#visualization-output");
             if (!element) {
-                console.error("Элемент не найден.");
+                console.error("Элемент не найден!");
                 return;
             }
 
             try {
-                const imageBlob = await domtoimage.toPng(element, { quality: 0.95 });
-                const downloadUrl = URL.createObjectURL(imageBlob);
+                // Преобразовываем элемент в строку Base64
+                const base64String = await domtoimage.toPng(element, { quality: 0.95 });
+
+                // Преобразуем строку Base64 в Blob
+                const byteCharacters = atob(base64String.split(',')[1]); // Получаем только данные изображения
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: 'image/png' });
+
+                // Генерируем URL и начинаем скачивание
+                const downloadUrl = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = downloadUrl;
-                a.download = "изображение.png";
+                a.download = "график.png";
                 a.click();
                 URL.revokeObjectURL(downloadUrl);
             } catch (err) {
-                console.error("Ошибка экспорта изображения:", err.message);
+                console.error("Ошибка экспорта изображения:", err);
             }
         }
+
 
         // Функция для экспорта данных в Excel
         function exportExcel() {
