@@ -32,6 +32,15 @@
 
 <body>
     <script>
+        // Хранилище комментариев по типам графиков
+        const commentsStorage = {};
+        ["line", "pie", "heatmap", "treemap"].forEach(type => {
+            commentsStorage[type] = [];
+        });
+
+        // Обработчики форм сохраняются такие же...
+    </script>
+    <script>
         // Объявляем функцию для экспорта презентации
         // Объявляем функцию для экспорта презентации
         function exportPresentation() {
@@ -108,6 +117,11 @@
                 <h2>Результат визуализации</h2>
             </div>
             <div id="visualization-output"></div>
+            <div class="comments-block">
+                <ul id="comments-list"></ul>
+                <input type="text" id="comment-input" class="comment-input" placeholder="Ваш комментарий..." />
+                <button id="submit-comment">Отправить</button>
+            </div>
         </section>
     </main>
 
@@ -117,13 +131,47 @@
 
     <script>
         let currentData = [];
-
+        // Переменная для текущего активного типа графика
+        let activeChartType = "";
+        // Получаем выбранный тип графика
+        document.getElementById('chart-type').addEventListener('change', function (e) {
+            activeChartType = e.target.value;
+            renderComments(activeChartType);
+        });
         document.getElementById('generate-button').addEventListener('click', () => {
             const textarea = document.querySelector('#data-textarea');
             const csvData = textarea.value.trim();
             processData(csvData);
         });
+        // Рендер текущих комментариев для выбранного графика
+        function renderComments(chartType) {
+            const commentsList = document.getElementById('comments-list');
+            commentsList.innerHTML = '';
+            commentsStorage[chartType].forEach(comment => {
+                const item = document.createElement('li');
+                item.textContent = comment;
+                commentsList.appendChild(item);
+            });
+        }
 
+        // Отправка комментария
+        document.getElementById('submit-comment').addEventListener('click', function () {
+            const commentText = document.getElementById('comment-input').value.trim();
+            if (commentText !== '' && activeChartType !== "") {
+                commentsStorage[activeChartType].push(commentText);
+                renderComments(activeChartType);
+                document.getElementById('comment-input').value = '';
+            }
+        });
+         // Обработчик отправки комментария
+        document.getElementById('submit-comment').addEventListener('click', function () {
+            const commentText = document.getElementById('comment-input').value.trim();
+            if (commentText !== '') {
+                addComment(commentText);
+                document.getElementById('comment-input').value = '';
+            }
+        });
+        
         function processData(csvData) {
             const data = d3.csvParse(csvData);
             currentData = data.filter(d => d.year && d.gdp && d.population).map(d => ({
