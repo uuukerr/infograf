@@ -12,6 +12,8 @@
     <script src="https://unpkg.com/topojson@3"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.6.1/d3.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@d3fc/d3fc-cartogram/dist/index.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         /* Стили для всплывающих подсказок */
         .tooltip {
@@ -38,12 +40,14 @@
                 <h2>Ввод данных и настройка</h2>
             </div>
             <form id="upload-form">
-                <textarea rows="5" cols="50" id="data-textarea"
-                          placeholder="Ваши данные в формате CSV"></textarea>
+                <textarea rows="5" cols="50" id="data-textarea" placeholder="Ваши данные в формате CSV"></textarea>
                 <button type="button" id="generate-button">Создать инфографику</button>
             </form>
         </section>
-
+        <div style="display: flex; justify-content: center; margin-top: 20px;">
+            <button onclick="exportImage()">Сохранить график в JPG</button>
+            <button onclick="exportExcel()">Сохранить данные в Excel</button>
+        </div>
         <section class="settings-section">
             <div class="settings-title">
                 <h2>Настройки визуализации</h2>
@@ -67,13 +71,13 @@
                 </select>
 
                 <label for="title">Название:</label>
-                <input type="text" id="title" placeholder="Название графика"/>
+                <input type="text" id="title" placeholder="Название графика" />
 
                 <label for="xlabel">Ось X:</label>
-                <input type="text" id="xlabel" placeholder="Метка оси X"/>
+                <input type="text" id="xlabel" placeholder="Метка оси X" />
 
                 <label for="ylabel">Ось Y:</label>
-                <input type="text" id="ylabel" placeholder="Метка оси Y"/>
+                <input type="text" id="ylabel" placeholder="Метка оси Y" />
             </div>
         </section>
 
@@ -169,6 +173,55 @@
                     console.error("Unknown chart type:", chartType);
             }
         }
+        // Функция для экспорта графика в JPG
+        async function exportImage() {
+            const svgNode = document.querySelector("#visualization-output svg");
+
+            if (!svgNode) {
+                console.error("Элемент не найден!");
+                return;
+            }
+
+            try {
+                // Использование метода toPng для создания изображения
+                const imageBlob = await domtoimage.toPng(svgNode, { quality: 0.95 });
+                const downloadUrl = URL.createObjectURL(imageBlob);
+                const a = document.createElement("a");
+                a.href = downloadUrl;
+                a.download = "график.png";
+                a.click();
+                URL.revokeObjectURL(downloadUrl);
+            } catch (err) {
+                console.error("Ошибка экспорта изображения:", err.message);
+            }
+        }
+
+        // Функция для экспорта данных в Excel
+        function exportExcel() {
+            const wb = XLSX.utils.book_new();
+            const ws_data = currentData.map(d => ({ Year: d.year, GDP: d.gdp }));
+            const ws = XLSX.utils.json_to_sheet(ws_data);
+            XLSX.utils.book_append_sheet(wb, ws, "Данные");
+
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+            const blob = new Blob([s2ab(wbout)], { type: "application/octet-stream" });
+            const downloadUrl = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = downloadUrl;
+            a.download = "данные.xlsx";
+            a.click();
+            URL.revokeObjectURL(downloadUrl);
+        }
+
+        // Функция для преобразования строки в буфер массива
+        function s2ab(s) {
+            var buf = new ArrayBuffer(s.length);
+            var view = new Uint8Array(buf);
+            for (var i = 0; i != s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;
+            return buf;
+        }
+
 
         function drawPieChart(outputContainer, title) {
             const width = 400;
@@ -325,7 +378,7 @@
 
             // Интерактивные подсказки (тултипы)
             svg.selectAll('.population-cell, .gdp-cell')
-                .on('mouseover', function(event, d) {
+                .on('mouseover', function (event, d) {
                     tooltip.transition()
                         .style('opacity', 0.9);
 
@@ -340,7 +393,7 @@
                         .style('left', `${event.pageX + 10}px`)
                         .style('top', `${event.pageY - 28}px`);
                 })
-                .on('mouseout', function() {
+                .on('mouseout', function () {
                     tooltip.transition()
                         .style('opacity', 0);
                 });
@@ -373,35 +426,91 @@
                 .append("g")
                 .attr("transform", `translate(${margin.left},${margin.top})`);
 
+            // Масштаб по оси X
             const xScale = d3.scaleBand()
                 .domain(currentData.map(d => d.year))
                 .range([0, width])
                 .padding(0.1);
 
+            // Масштаб по оси Y
             const yScale = d3.scaleLinear()
                 .domain([0, d3.max(currentData, d => d.gdp)])
                 .range([height, 0]);
 
+            // Генерация линии
             const line = d3.line()
                 .x(d => xScale(d.year))
                 .y(d => yScale(d.gdp));
 
+            // Основной путь графика
             svg.append("path")
                 .datum(currentData)
+                .attr("class", "line")
                 .attr("fill", "none")
                 .attr("stroke", "steelblue")
                 .attr("stroke-width", 1.5)
                 .attr("d", line);
 
+            // Ось X
             svg.append("g")
-                .attr("class", "axis-x")
+                .attr("class", "axis axis-x")
                 .attr("transform", `translate(0,${height})`)
                 .call(d3.axisBottom(xScale));
 
+            // Ось Y
             svg.append("g")
-                .attr("class", "axis-y")
+                .attr("class", "axis axis-y")
                 .call(d3.axisLeft(yScale));
 
+            // Добавляем круги для точек данных
+            const points = svg.selectAll(".point")
+                .data(currentData)
+                .enter()
+                .append("circle")
+                .attr("class", "point")
+                .attr("cx", d => xScale(d.year))
+                .attr("cy", d => yScale(d.gdp))
+                .attr("r", 5)
+                .attr("fill", "red");
+
+            // Функция для фиксации точки на положении курсора
+            function fixPointToCursor(event, d) {
+                // Сохраняем текущую позицию курсора и положение точки
+                const cursorInitialPos = { x: event.clientX, y: event.clientY };
+                const pointOriginalPos = { cx: xScale(d.year), cy: yScale(d.gdp) };
+
+                // Обрабатываем дальнейшее движение мыши
+                const moveHandler = (ev) => {
+                    // Новая позиция точки зависит от расстояния, пройденного курсором
+                    const newCX = pointOriginalPos.cx;
+                    const newCY = pointOriginalPos.cy - (cursorInitialPos.y - ev.clientY); // Инвертируем направление
+
+                    // Обновляем точку и линию
+                    d.gdp = yScale.invert(newCY); // Обновляем данные на основе новой позиции
+                    svg.select(".line").attr("d", line); // Обновляем линию графика
+
+                    // Обновляем все точки сразу
+                    points.attr("cy", p => yScale(p.gdp));
+                };
+
+                // Регистрируем обработчик движения мыши
+                window.addEventListener("mousemove", moveHandler);
+
+                // Завершаем процесс перетаскивания при отпускании мыши
+                const stopHandler = () => {
+                    window.removeEventListener("mousemove", moveHandler);
+                    window.removeEventListener("mouseup", stopHandler);
+                };
+
+                window.addEventListener("mouseup", stopHandler);
+            }
+
+            // Назначаем обработчик перетаскивания на точки
+            points.each(function (d) {
+                this.addEventListener("mousedown", (event) => fixPointToCursor(event, d));
+            });
+
+            // Надписи осей и заголовок
             svg.append("text")
                 .attr("x", width / 2)
                 .attr("y", -10)
@@ -421,7 +530,6 @@
                 .attr("text-anchor", "middle")
                 .text(ylabel);
         }
-
         // ТЕПЛОВАЯ КАРТА (HEATMAP)
         function drawHeatmap(outputContainer, title) {
             const margin = { top: 20, right: 30, bottom: 40, left: 50 };
