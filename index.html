@@ -33,27 +33,22 @@
 <body>
     <script>
         // Объявляем функцию для экспорта презентации
+        // Объявляем функцию для экспорта презентации
         function exportPresentation() {
             const pres = new PptxGenJS();
             const slide = pres.addSlide();
 
-            // Получаем SVG-рисунок
+            // Преобразуем SVG в Base64-изображение
             const svgEl = document.querySelector("#visualization-output svg");
-            if (!svgEl) {
-                console.error("Элемент SVG не найден!");
-                return;
-            }
+            const svgXml = new XMLSerializer().serializeToString(svgEl);
+            const svgBase64 = btoa(unescape(encodeURIComponent(svgXml)));
+            const imgSrc = `data:image/svg+xml;base64,${svgBase64}`;
 
-            // Используем dom-to-image для преобразования SVG в PNG
-            domtoimage.toPng(svgEl).then((dataUrl) => {
-                // Добавляем изображение на слайд
-                slide.addImage({ data: dataUrl, x: 0, y: 0, w: 800, h: 600 });
+            // Добавляем изображение на слайд
+            slide.addImage({ data: imgSrc, x: 0, y: 0, w: 800, h: 600 });
 
-                // Сохраняем презентацию
-                pres.writeFile({ filename: "Инфографика.pptx" });
-            }).catch((err) => {
-                console.error("Ошибка преобразования SVG в PNG:", err);
-            });
+            // Сохраняем презентацию
+            pres.writeFile({ filename: "Инфографика.pptx" });
         }
     </script>
     <header class="header">
