@@ -173,22 +173,20 @@
                     console.error("Unknown chart type:", chartType);
             }
         }
-        // Функция для экспорта графика в JPG
-        async function exportImage() {
-            const svgNode = document.querySelector("#visualization-output svg");
 
-            if (!svgNode) {
-                console.error("Элемент не найден!");
+        async function exportImage() {
+            const element = document.querySelector("#visualization-output");
+            if (!element) {
+                console.error("Элемент не найден.");
                 return;
             }
 
             try {
-                // Использование метода toPng для создания изображения
-                const imageBlob = await domtoimage.toPng(svgNode, { quality: 0.95 });
+                const imageBlob = await domtoimage.toPng(element, { quality: 0.95 });
                 const downloadUrl = URL.createObjectURL(imageBlob);
                 const a = document.createElement("a");
                 a.href = downloadUrl;
-                a.download = "график.png";
+                a.download = "изображение.png";
                 a.click();
                 URL.revokeObjectURL(downloadUrl);
             } catch (err) {
