@@ -15,6 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@d3fc/d3fc-cartogram/dist/index.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas/dist/html2canvas.min.js"></script>
     <style>
         /* Стили для всплывающих подсказок */
         .tooltip {
@@ -36,18 +37,51 @@
         // Объявляем функцию для экспорта презентации
         async function exportPresentation() {
             const pres = new PptxGenJS();
-            const slide = pres.addSlide();
+            const slide = pres.addSlide(); // Новый чистый слайд
 
-            // Используем dom-to-image для превращения элемента в PNG
             const element = document.querySelector("#visualization-output");
-            const pngData = await domtoimage.toPng(element, { quality: 0.95 });
+            const canvas = await html2canvas(element, { allowTaint: true, useCORS: true }); // Используем параметры для поддержки прозрачных изображений
+            const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve));
 
-            // Добавляем изображение на слайд
-            slide.addImage({ data: pngData, x: 0, y: 0, w: 800, h: 600 });
+            const buffer = await pngBlob.arrayBuffer();
+            const base64Str = btoa(String.fromCharCode.apply(null, new Uint8Array(buffer)));
+            const imgSrc = `data:image/png;base64,${base64Str}`;
 
-            // Сохраняем презентацию
+            // Устанавливаем полное покрытие слайда изображением
+            slide.addImage({
+                data: imgSrc,
+                fit: true,   // Авто-подгон размера
+                x: 0, y: 0,
+                cx: 720, cy: 540 // Ширина и высота слайда в точках (для стандартного A4)
+            });
+
             pres.writeFile({ filename: "Инфографика.pptx" });
         }
+
+        function exportSvg() {
+            const svgElement = document.querySelector("#visualization-output svg");
+            const serializer = new XMLSerializer();
+            const svgXml = serializer.serializeToString(svgElement);
+            const blob = new Blob([svgXml], { type: "image/svg+xml" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "my-svg.svg";
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function exportImage() {
+            const element = document.querySelector("#visualization-output");
+            const canvas = await html2canvas(element);
+            const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve));
+
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(pngBlob);
+            link.download = "test-image.png";
+            link.click();
+        }
+
     </script>
     <header class="header">
         <h1>Конструктор инфографики</h1>
@@ -76,6 +110,7 @@ year,gdp,population
             <button onclick="exportImage()">Сохранить график в JPG</button>
             <button onclick="exportExcel()">Сохранить данные в Excel</button>
             <button onclick="exportPresentation()">Скачать презентацию (.pptx)</button>
+            <button onclick="exportSvg()">Экспорт SVG</button>
         </div>
         <section class="settings-section">
             <div class="settings-title">
@@ -198,7 +233,7 @@ year,gdp,population
             const csvData = textarea.value.trim();
             processData(d3.csvParse(csvData)); // тут парсим данные из текстового поля и вызываем processData
         });
-
+        
         document.getElementById('file-upload').addEventListener('change', handleFileUpload);
 
         function handleFileUpload(e) {
@@ -730,7 +765,6 @@ year,gdp,population
                 .attr("r", 5)
                 .attr("fill", "red");
 
-
             function createUpdatedCsvData(data) {
                 const headers = ["year", "population", "gdp"];
                 const rows = data.map(d => [
@@ -741,7 +775,6 @@ year,gdp,population
 
                 return [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
             }
-
             // Функция для фиксации точки на положении курсора
             function fixPointToCursor(event, d) {
                 // Сохраняем текущую позицию курсора и положение точки
@@ -799,20 +832,7 @@ year,gdp,population
                 .attr("y", -40)
                 .attr("text-anchor", "middle")
                 .text(ylabel);
-
         }
-        const path = document.querySelector('path');
-        if (path) {
-            const bbox = path.getBBox();
-            console.log(`Размеры пути: ширина=${bbox.width}, высота=${bbox.height}`);
-        }
-
-        const circles = document.querySelectorAll('circle');
-        circles.forEach((circle, index) => {
-            const bbox = circle.getBBox();
-            console.log(`Кружок ${index}: x=${bbox.x}, y=${bbox.y}, ширина=${bbox.width}, высота=${bbox.height}`);
-        });
-
         // ТЕПЛОВАЯ КАРТА (HEATMAP)
         function drawHeatmap(outputContainer, title, data) {
             const margin = { top: 20, right: 30, bottom: 40, left: 50 };
