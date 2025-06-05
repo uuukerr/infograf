@@ -34,18 +34,16 @@
     <script>
         // Объявляем функцию для экспорта презентации
         // Объявляем функцию для экспорта презентации
-        function exportPresentation() {
+        async function exportPresentation() {
             const pres = new PptxGenJS();
             const slide = pres.addSlide();
 
-            // Преобразуем SVG в Base64-изображение
-            const svgEl = document.querySelector("#visualization-output svg");
-            const svgXml = new XMLSerializer().serializeToString(svgEl);
-            const svgBase64 = btoa(unescape(encodeURIComponent(svgXml)));
-            const imgSrc = `data:image/svg+xml;base64,${svgBase64}`;
+            // Используем dom-to-image для превращения элемента в PNG
+            const element = document.querySelector("#visualization-output");
+            const pngData = await domtoimage.toPng(element, { quality: 0.95 });
 
             // Добавляем изображение на слайд
-            slide.addImage({ data: imgSrc, x: 0, y: 0, w: 800, h: 600 });
+            slide.addImage({ data: pngData, x: 0, y: 0, w: 800, h: 600 });
 
             // Сохраняем презентацию
             pres.writeFile({ filename: "Инфографика.pptx" });
@@ -200,7 +198,7 @@ year,gdp,population
             const csvData = textarea.value.trim();
             processData(d3.csvParse(csvData)); // тут парсим данные из текстового поля и вызываем processData
         });
-        
+
         document.getElementById('file-upload').addEventListener('change', handleFileUpload);
 
         function handleFileUpload(e) {
@@ -732,6 +730,7 @@ year,gdp,population
                 .attr("r", 5)
                 .attr("fill", "red");
 
+
             function createUpdatedCsvData(data) {
                 const headers = ["year", "population", "gdp"];
                 const rows = data.map(d => [
@@ -742,6 +741,7 @@ year,gdp,population
 
                 return [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
             }
+
             // Функция для фиксации точки на положении курсора
             function fixPointToCursor(event, d) {
                 // Сохраняем текущую позицию курсора и положение точки
@@ -799,7 +799,20 @@ year,gdp,population
                 .attr("y", -40)
                 .attr("text-anchor", "middle")
                 .text(ylabel);
+
         }
+        const path = document.querySelector('path');
+        if (path) {
+            const bbox = path.getBBox();
+            console.log(`Размеры пути: ширина=${bbox.width}, высота=${bbox.height}`);
+        }
+
+        const circles = document.querySelectorAll('circle');
+        circles.forEach((circle, index) => {
+            const bbox = circle.getBBox();
+            console.log(`Кружок ${index}: x=${bbox.x}, y=${bbox.y}, ширина=${bbox.width}, высота=${bbox.height}`);
+        });
+
         // ТЕПЛОВАЯ КАРТА (HEATMAP)
         function drawHeatmap(outputContainer, title, data) {
             const margin = { top: 20, right: 30, bottom: 40, left: 50 };
